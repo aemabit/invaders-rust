@@ -6,6 +6,7 @@ use crossterm::{
 };
 use invaders_rust::{
     frame::{self, new_frame, Drawable},
+    invaders::Invaders,
     player::Player,
     render,
 };
@@ -56,6 +57,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // GAME LOOP
     let mut player = Player::new();
     let mut instant = Instant::now();
+    let mut invaders = Invaders::new();
     'gameloop: loop {
         // PER-FRAME INIT
         let delta = instant.elapsed();
@@ -85,11 +87,32 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         // UPDATE
         player.update(delta);
+        if invaders.update(delta) {
+            audio.play("move");
+        }
+        if player.detect_hits(&mut invaders) {
+            audio.play("explode")
+        }
 
         // DRAW & RENDER
         player.draw(&mut curr_frame);
+        invaders.draw(&mut curr_frame);
+        let drawables: Vec<&dyn Drawable> = vec![&player, &invaders];
+        for drawable in drawables {
+            drawable.draw(&mut curr_frame);
+        }
         let _ = render_tx.send(curr_frame);
         thread::sleep(Duration::from_millis(1));
+
+        // WIN OR LOSE
+        if invaders.all_killed() {
+            audio.play("win");
+            break 'gameloop;
+        }
+        if invaders.reached_bottom() {
+            audio.play("lose");
+            break 'gameloop;
+        }
     }
 
     // CLEANUP

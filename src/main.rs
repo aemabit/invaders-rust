@@ -4,9 +4,19 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
-use invaders_rust::{render, frame::{new_frame, self}};
+use invaders_rust::{
+    frame::{self, new_frame, Drawable},
+    player::Player,
+    render,
+};
 use rusty_audio::Audio;
-use std::{error::Error, io, time::Duration, sync::mpsc, thread};
+use std::{
+    error::Error,
+    io,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("Hello, world!");
@@ -34,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut stdout = io::stdout();
         render::render(&mut stdout, &last_frame, &last_frame, true);
         loop {
-           let curr_frame =  match render_rx.recv() {
+            let curr_frame = match render_rx.recv() {
                 Ok(x) => x,
                 Err(_) => break,
             };
@@ -43,16 +53,28 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-
     // GAME LOOP
+    let mut player = Player::new();
+    let mut instant = Instant::now();
     'gameloop: loop {
         // PER-FRAME INIT
-        let curr_frame = new_frame();
+        let delta = instant.elapsed();
+        instant = Instant::now();
+        let mut curr_frame = new_frame();
 
         // INPUT
         while event::poll(Duration::default())? {
             if let Event::Key(key_event) = event::read()? {
                 match key_event.code {
+                    KeyCode::Left => player.move_left(),
+                    KeyCode::Right => player.move_right(),
+                    // KeyCode::Up => player.move_up(),
+                    // KeyCode::Down => player.move_down(),
+                    KeyCode::Char(' ') | KeyCode::Enter => {
+                        if player.shoot() {
+                            audio.play("pew");
+                        }
+                    }
                     KeyCode::Esc | KeyCode::Char('q') => {
                         audio.play("lose");
                         break 'gameloop;
@@ -61,8 +83,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
+        // UPDATE
+        player.update(delta);
 
         // DRAW & RENDER
+        player.draw(&mut curr_frame);
         let _ = render_tx.send(curr_frame);
         thread::sleep(Duration::from_millis(1));
     }

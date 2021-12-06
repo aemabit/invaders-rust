@@ -1,11 +1,10 @@
-use std::time::Duration;
-
 use crate::{
     frame::{Drawable, Frame},
-    invaders::{Invaders},
+    invaders::Invaders,
     shot::Shot,
-    NUM_COLS, NUM_ROWS,
+    {NUM_COLS, NUM_ROWS},
 };
+use std::time::Duration;
 
 pub struct Player {
     x: usize,
@@ -31,16 +30,6 @@ impl Player {
             self.x += 1;
         }
     }
-    pub fn move_up(&mut self) {
-        if self.y < NUM_COLS - 1 {
-            self.y += 1;
-        }
-    }
-    pub fn move_down(&mut self) {
-        if self.y < NUM_COLS - 1 {
-            self.y += 1;
-        }
-    }
     pub fn shoot(&mut self) -> bool {
         if self.shots.len() < 2 {
             self.shots.push(Shot::new(self.x, self.y - 1));
@@ -55,24 +44,30 @@ impl Player {
         }
         self.shots.retain(|shot| !shot.dead());
     }
-
-    pub fn detect_hits(&mut self, invaders: &mut Invaders) -> bool {
-        let mut hit_somenthing = false;
+    pub fn detect_hits(&mut self, invaders: &mut Invaders) -> u16 {
+        let mut hit_something = 0u16;
         for shot in self.shots.iter_mut() {
             if !shot.exploding {
-                if invaders.kill_invader_at(shot.x, shot.y) {
-                    hit_somenthing = true;
+                let hit_count = invaders.kill_invader_at(shot.x, shot.y);
+                if hit_count > 0 {
+                    hit_something += hit_count;
                     shot.explode();
                 }
             }
         }
-        hit_somenthing
+        hit_something
+    }
+}
+
+impl Default for Player {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl Drawable for Player {
     fn draw(&self, frame: &mut Frame) {
-        frame[self.x][self.y] = "A";
+        frame[self.x][self.y] = 'A';
         for shot in self.shots.iter() {
             shot.draw(frame);
         }
